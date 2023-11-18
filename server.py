@@ -12,7 +12,6 @@ def handleClient(conn, addr):
     print(f'[NEW CONNECTION] {addr} connected')
     global connections
     connections[addr] = conn
-    print(connections)
     connected = True
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT)
@@ -28,7 +27,6 @@ def handleClient(conn, addr):
             else:
                 conn.send('Message received'.encode(FORMAT))
                 for client in connections.values():
-                    print(client)
                     client.send(f'[{addr}] {msg}'.encode(FORMAT))
             print(f'[{addr}] {msg}')
 
