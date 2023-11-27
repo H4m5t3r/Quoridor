@@ -1,6 +1,8 @@
 import pygame
 from game.wall import Wall
 from game.player import Player
+import threading
+import time
 
 pygame.init()
 
@@ -54,7 +56,21 @@ def create_players(player_positions, board_pos):
         players.add(player)
     return players
 
+def checkTurn():
+    global my_turn
+    while True:
+        time.sleep(5)
+        my_turn = not my_turn
+
 def main():
+    global my_turn
+    my_turn = True
+    check_turn = threading.Thread(target=runGame)
+    check_turn.start()
+    run_game = threading.Thread(target=checkTurn)
+    run_game.start()
+
+def runGame():
     resolution = (900, 720)
     
     screen = pygame.display.set_mode(resolution)
@@ -75,41 +91,47 @@ def main():
         "P4": (9, 5)
     }
 
-    while True:
+    global my_turn
+    font = pygame.font.Font(None, 36)
+    black = (0, 0, 0)
+
+    running = True
+    while running:
         events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.QUIT:
-                return
-            
-            if current_player == player_id:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] - 1)
-                    if event.key == pygame.K_DOWN:
-                        player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] + 1)
-                    if event.key == pygame.K_LEFT:
-                        player_positions['P1'] = (player_positions['P1'][0] - 1, player_positions['P1'][1])
-                    if event.key == pygame.K_RIGHT:
-                        player_positions['P1'] = (player_positions['P1'][0] + 1, player_positions['P1'][1])
-                    if event.key == pygame.K_o:
-                        if wall_orientation == 'h':
-                            wall_orientation = 'v'
-                        else:
-                            wall_orientation = 'h'
+        if my_turn:
+            for event in events:
+                if event.type == pygame.QUIT:
+                    running = False
+                
+                if current_player == player_id:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_UP:
+                            player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] - 1)
+                        if event.key == pygame.K_DOWN:
+                            player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] + 1)
+                        if event.key == pygame.K_LEFT:
+                            player_positions['P1'] = (player_positions['P1'][0] - 1, player_positions['P1'][1])
+                        if event.key == pygame.K_RIGHT:
+                            player_positions['P1'] = (player_positions['P1'][0] + 1, player_positions['P1'][1])
+                        if event.key == pygame.K_o:
+                            if wall_orientation == 'h':
+                                wall_orientation = 'v'
+                            else:
+                                wall_orientation = 'h'
 
-                mousex, mousey = pygame.mouse.get_pos()
-                board_pos_x = (round((mousex - board_pos[0] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
-                board_pos_y = (round((mousey - board_pos[1] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
+                    mousex, mousey = pygame.mouse.get_pos()
+                    board_pos_x = (round((mousex - board_pos[0] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
+                    board_pos_y = (round((mousey - board_pos[1] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
 
-                x, y = get_wall_coordinates((board_pos_x, board_pos_y), board_pos)
+                    x, y = get_wall_coordinates((board_pos_x, board_pos_y), board_pos)
 
-                if wall_orientation == 'h':
-                    rect = (x-(TILESIZE), y-(WALLSIZE/2), TILESIZE*2, WALLSIZE)
-                else:
-                    rect = (x-(WALLSIZE/2), y-(TILESIZE), WALLSIZE, TILESIZE*2)
+                    if wall_orientation == 'h':
+                        rect = (x-(TILESIZE), y-(WALLSIZE/2), TILESIZE*2, WALLSIZE)
+                    else:
+                        rect = (x-(WALLSIZE/2), y-(TILESIZE), WALLSIZE, TILESIZE*2)
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                        wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                            wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
                 
         
         screen.fill(pygame.Color('grey'))
@@ -117,10 +139,15 @@ def main():
         players = create_players(player_positions, board_pos)
         walls.draw(screen)
         players.draw(screen)
-        pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
+        if my_turn:
+            pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
+        else:
+            text_surface = font.render("Please wait for your turn", True, black)
+            screen.blit(text_surface, (300, 50))
         screen.blit(board_surface, (board_pos))
         pygame.display.flip()
         clock.tick(60)
+
 
 if __name__ == '__main__':
     main()
