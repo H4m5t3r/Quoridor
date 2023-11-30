@@ -1,26 +1,15 @@
-import pygame
-from game.wall import Wall
-from game.player import Player
-import threading
-import time
-import socket
-import select
-import pickle
-
-pygame.init()
-
 TILESIZE = 50
 WALLSIZE = 8
 BOARDSIZE = 9
 PLAYER_COLORS = ('forestgreen', 'firebrick', 'gold2', 'royalblue')
 PLAYER_SIZE = TILESIZE/2 - 2
 
-PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
-MSG_LEN = 64
-FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = '!DISCONNECT'
+import pygame
+from game.wall import Wall
+from game.player import Player
+from communication.connection import Connection
+
+pygame.init()
 
 def create_board_surf():
     board_surf = pygame.Surface(((TILESIZE + WALLSIZE) * BOARDSIZE - WALLSIZE, 
@@ -66,121 +55,41 @@ def create_players(player_positions, board_pos):
         players.add(player)
     return players
 
-def checkTurn():
-    global game_paused
-    game_paused = True
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        server_socket.bind(ADDR)
-        host(server_socket)
-    except:
-        joined(server_socket)
+# def joinGame(client, address):
+#     global player_id_to_address
+#     player_id_to_address["P2"] = address
+#     print("P2", address, "joined")
 
-    global current_player
-    while True:
-        time.sleep(5)
-        current_player = 'P2'
-        time.sleep(5)
-        current_player = 'P1'
-
-def host(server_socket):
-    server_socket.listen(4)
-    inputs = [server_socket]
-    outputs = []
-    global player_id
-    player_id = "P1"
-
-    global turn_index
-    while True:
-        readable, writable, exceptional = select.select(
-        inputs, outputs, inputs, 1)
-        for s in readable:
-            if s is server_socket:
-                connection, client_address = s.accept()
-                connection.setblocking(0)
-                inputs.append(connection)
-                threading.Thread(target=handle_client, args=(connection, client_address)).start()
-                print(turn_index)
-
-
-def handle_client(client, address):
-    msg_length = client.recv(MSG_LEN).decode(FORMAT)
-    msg_length = int(msg_length)
-    msg = client.recv(msg_length).decode(FORMAT)
-    print(msg)
-    # global commands
-    # print(commands[msg])
-    passTurn()
-    commands[msg](client, address)
-    # joinGame(client, address)
-
-    # request_bytes = b"" + client.recv(1024)
-
-    # if not request_bytes:
-    #     print("Connection closed")
-    #     client.close()
-    # request_str = request_bytes.decode()
-    # print(request_str)
-
-def joined(server_socket):
-    server_socket.connect(ADDR)
-    
-    inputs = [server_socket]
-    outputs = []
-
-    global turn_index
-    print(turn_index)
-    passTurn()
-    send(server_socket, "join")
-    print(turn_index)
-    # msg_len = int(server_socket.recv(MSG_LEN).decode(FORMAT))
-    # msg = server_socket.recv(msg_len)
-    # print(msg)
-
-    while True:
-        readable, writable, exceptional = select.select(
-        inputs, outputs, inputs, 1)
-        for s in readable:
-            if s is server_socket:
-                connection, client_address = s.accept()
-                connection.setblocking(0)
-                inputs.append(connection)
-                threading.Thread(target=handle_client, args=(connection, client_address)).start()
-
-def send(server, msg):
-    message = msg.encode(FORMAT)
-    msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
-    send_length += b' ' * (MSG_LEN - len(send_length))
-    server.send(send_length)
-    server.send(message)
-    print(server.recv(2048))
-
-def joinGame(client, address):
-    global player_id_to_address
-    player_id_to_address["P2"] = address
-    print("P2", address, "joined")
-
-def passTurn(client=None):
-    global current_player
-    if current_player == 'P1':
-        current_player = 'P2'
-    elif current_player == 'P2':
-        current_player = 'P1'
-    else:
-        current_player = 'P1'
-    # global turn_index
-    # turn_index += 1
-    # global joined_players
-    # if turn_index >= len(joined_players):
-    #     turn_index = 0
+# def passTurn(client=None):
+#     global current_player
+#     if current_player == 'P1':
+#         current_player = 'P2'
+#     elif current_player == 'P2':
+#         current_player = 'P1'
+#     else:
+#         current_player = 'P1'
+#     # global turn_index
+#     # turn_index += 1
+#     # global joined_players
+#     # if turn_index >= len(joined_players):
+#     #     turn_index = 0
 
 def main():
     createGlobalVariables()
-    check_turn = threading.Thread(target=runGame)
-    check_turn.start()
-    run_game = threading.Thread(target=checkTurn)
-    run_game.start()
+
+    connection = Connection("0.0.0.0")
+    connection.start()
+
+    # wait for socket to be created
+    # and for other games to start
+    import time
+    time.sleep(5)
+
+    # try to connect to nodes on other computers on the list
+    peers = ['Juha-Air', 'Juhas-Mac-mini']
+    connection.connect_to_peers(peers)
+
+    runGame(connection)
 
 def createGlobalVariables():
     global game_started
@@ -192,16 +101,46 @@ def createGlobalVariables():
     global player_id
     player_id = 'init'
     global commands
-    commands = {
-        "join": joinGame,
-        "pass": passTurn
-    }
+    # commands = {
+    #     "join": joinGame,
+    #     "pass": passTurn
+    # }
     global player_id_to_address
     player_id_to_address = {}
     global turn_index
     turn_index = 99999999
+    global player_positions
+    player_positions = {
+        "P1": (5, 2),
+        "P2": (5, 9),
+        "P3": (1, 6),
+        "P4": (9, 5)
+    }
 
-def runGame():
+def handle_network_message(msg):
+    parts = msg.split(',')
+    command = parts[0]
+    pid = parts[1]
+    global player_positions
+
+    match command:
+        case 'PAWN':
+            print('pawn message received')
+            player_positions[pid] = (int(parts[2]),int(parts[3]))
+
+        case 'WALL':
+            print('wall message received')
+
+        case 'TURN':
+            print('turn message received')
+        
+        case 'START':
+            print('start message received')
+
+        case _:
+            print('unknown message')
+
+def runGame(connection):
     resolution = (900, 720)
     
     screen = pygame.display.set_mode(resolution)
@@ -216,12 +155,7 @@ def runGame():
 
     global wall_positions
     wall_positions = [(1,1,'h'), (5,2,'v'), (5,8,'h')]
-    player_positions = {
-        "P1": (5, 2),
-        "P2": (5, 9),
-        "P3": (1, 6),
-        "P4": (9, 5)
-    }
+    global player_positions
 
     font = pygame.font.Font(None, 36)
     black = (0, 0, 0)
@@ -230,22 +164,39 @@ def runGame():
     global joined_players
     running = True
     while running:
+        msg = connection.read_message()
+        if msg:
+            handle_network_message(msg)
+
         events = pygame.event.get()
         screen.fill(pygame.Color('grey'))
         for event in events:
             if event.type == pygame.QUIT:
+                connection.close()
                 running = False
             
-            if current_player == player_id:
+            if True: #current_player == player_id:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
                         player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] - 1)
+                        x, y = player_positions['P1']
+                        connection.send_message(f'PAWN,P1,{x},{y}')
+
                     if event.key == pygame.K_DOWN:
                         player_positions['P1'] = (player_positions['P1'][0], player_positions['P1'][1] + 1)
+                        x, y = player_positions['P1']
+                        connection.send_message(f'PAWN,P1,{x},{y}')
+
                     if event.key == pygame.K_LEFT:
                         player_positions['P1'] = (player_positions['P1'][0] - 1, player_positions['P1'][1])
+                        x, y = player_positions['P1']
+                        connection.send_message(f'PAWN,P1,{x},{y}')
+
                     if event.key == pygame.K_RIGHT:
                         player_positions['P1'] = (player_positions['P1'][0] + 1, player_positions['P1'][1])
+                        x, y = player_positions['P1']
+                        connection.send_message(f'PAWN,P1,{x},{y}')
+
                     if event.key == pygame.K_o:
                         if wall_orientation == 'h':
                             wall_orientation = 'v'
@@ -269,7 +220,6 @@ def runGame():
                 if current_player == player_id:
                     pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
                 
-
         walls = create_walls(wall_positions, board_pos)
         players = create_players(player_positions, board_pos)
         walls.draw(screen)
