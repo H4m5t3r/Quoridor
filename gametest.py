@@ -24,6 +24,7 @@ class GameMain(object):
     def __init__(self, connection) -> None:
         self.connection = connection
         self.game_started = False
+        self.status = 'connecting'
         self.joined_players = []
         self.player_id = None
         self.current_player = None
@@ -54,6 +55,9 @@ class GameMain(object):
             if msg:
                 self.handle_network_message(msg)
 
+            if self.status == 'connecting':
+                self.connection.connect_to_peers()
+    
             # Check for events
             events = pygame.event.get()
             for event in events:
@@ -66,22 +70,22 @@ class GameMain(object):
                         if event.key == pygame.K_UP:
                             self.player_positions['P1'] = (self.player_positions['P1'][0], self.player_positions['P1'][1] - 1)
                             x, y = self.player_positions['P1']
-                            self.connection.send_message(f'PAWN,P1,{x},{y}')
+                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
 
                         if event.key == pygame.K_DOWN:
                             self.player_positions['P1'] = (self.player_positions['P1'][0], self.player_positions['P1'][1] + 1)
                             x, y = self.player_positions['P1']
-                            self.connection.send_message(f'PAWN,P1,{x},{y}')
+                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
 
                         if event.key == pygame.K_LEFT:
                             self.player_positions['P1'] = (self.player_positions['P1'][0] - 1, self.player_positions['P1'][1])
                             x, y = self.player_positions['P1']
-                            self.connection.send_message(f'PAWN,P1,{x},{y}')
+                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
 
                         if event.key == pygame.K_RIGHT:
                             self.player_positions['P1'] = (self.player_positions['P1'][0] + 1, self.player_positions['P1'][1])
                             x, y = self.player_positions['P1']
-                            self.connection.send_message(f'PAWN,P1,{x},{y}')
+                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
 
                         if event.key == pygame.K_o:
                             if wall_orientation == 'h':
@@ -165,11 +169,11 @@ class GameMain(object):
     def handle_network_message(self, msg):
         parts = msg.split(',')
         command = parts[0]
-        playerid = parts[1]
-
+        
         match command:
             case 'PAWN':
                 print('pawn message received')
+                playerid = parts[1]
                 self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
 
             case 'WALL':
@@ -208,10 +212,10 @@ if __name__ == '__main__':
     connection.start()
     # wait for socket to be created
     # and for other games to start
-    import time
-    time.sleep(5)
+    # import time
+    # time.sleep(5)
 
-    # try to connect to nodes on other computers on the list
-    peers = ['Juha-Air']
-    connection.connect_to_peers(peers)
+    # # try to connect to nodes on other computers on the list
+    # peers = ['Juha-Air']
+    # connection.connect_to_peers(peers)
     GameMain(connection)
