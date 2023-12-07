@@ -17,6 +17,14 @@ class Connection:
         self.messages = deque()
         self.running = True
         self.my_ip = self.get_my_ip()
+        self.awaiting_agreement = "agree_players"
+        self.agreements = {}
+        self.players = {}
+        self.state = {
+            "agree_players": False,
+            "agree_pawns": False,
+            "agree_walls": False
+            }
 
     def get_my_ip(self):
         localname = socket.gethostname()
@@ -79,6 +87,7 @@ class Connection:
         for connection in self.connections:
             try:
                 connection.send(message)
+                Logger.log(f"Sent message to {connection.getpeername()}: {message}")
             except socket.error as e:
                 Logger.log(f"Failed to send message. Error: {e}")
 
@@ -89,6 +98,46 @@ class Connection:
             return self.messages.popleft()
         else:
             return None
+        
+    def agree(self, variable, state):
+        if variable == "agree_players":
+            if len(self.players) == 0:
+                self.players = state
+                return True
+            if self.players == state:
+                return True
+            return False
+
+    def get_agreement(self, variable, state):
+        self.awaiting_agreement = True
+        self.agreements[self.my_ip] = True
+        agreement = {"variable": variable, "data": state}
+        self.send_message(MessageTypes.DOYOUAGREE, agreement)
+
+    def __generate_playerlist(self):
+        adds = self.addresses.copy()
+        adds.append(self.my_ip)
+        adds.sort()
+        pdict = {}
+        for i in range(0, len(adds)):
+            pdict[f"P{i}"] = adds[i]
+        self.players = pdict
+    
+    def __all_agree(self, dict):
+        for value in dict.values():
+            if value == False:
+                return False
+        return True
+
+    def start_game(self):
+        if self.state["agree_players"] == False:
+            self.__generate_playerlist()
+            self.get_agreement("agree_players", self.players)
+        else:
+            Logger.log("Agreed on player list and order")
+        
+    def get_connected_peers(self):
+        return self.connections
 
     # Handles a connection from another computer
     def handle_client(self, connection, address):
@@ -97,21 +146,46 @@ class Connection:
                 msg = connection.recv(1024)
                 dict = json.loads(msg.decode(FORMAT))
                 message_type = dict["type"]
+                Logger.log(f"Received message from {connection.getpeername()}: {msg}")
 
                 if message_type == MessageTypes.MESSAGE:
                     self.messages.append(dict["data"])
                 
                 if message_type == MessageTypes.CONNECTIONS:
-                    Logger.log('received connections')
+                    Logger.log(f"received connections from' {connection.getpeername()}: {dict['data']}")
                     for conn in dict["data"]:
                         self.potential_connections.append(conn)
 
+                if message_type == MessageTypes.DISCONNECT:
+                    for conn in self.connections:
+                        if conn.getpeername()[0] == connection.getpeername()[0]:
+                            conn.close()
+                            self.addresses.remove(connection.getpeername()[0])
+                    connection.close()
+                    self.running = False
+                    Logger.log(f"Connection from {address} closed.")
+
+                if message_type == MessageTypes.DOYOUAGREE:
+                    answer = self.agree(dict["data"]["variable"], dict["data"]["data"])
+                    print(answer)
+                    data = {"ip": self.my_ip, "answer": answer}
+                    self.send_message(MessageTypes.AGREE, data)
+
+                if message_type == MessageTypes.AGREE:
+                    if not self.awaiting_agreement == None:
+                        self.agreements[dict["data"]["ip"]] = dict["data"]["answer"]
+                        if len(self.agreements) == len(self.addresses) + 1:
+                            if self.__all_agree(self.agreements):
+                                print("all agree")
+                                self.state[self.awaiting_agreement] = True
+                                self.awaiting_agreement = None
+                            else:
+                                print("no agreement")
+                    else:
+                        pass
+
             except socket.error:
                 break
-
-        Logger.log(f"Connection from {address} closed.")
-        self.connections.remove(connection)
-        connection.close()
 
     # Starts a thread that listens to new connections
     def start(self):
@@ -127,7 +201,7 @@ class Connection:
     # Closes socket and other connections
     def close(self):
         self.running = False
-        self.send_message(MessageTypes.DISCONNECT, "")
+        self.send_message(MessageTypes.DISCONNECT, " ")
         for connection in self.connections:
             connection.close()
         self.socket.close()
@@ -140,3 +214,5 @@ class MessageTypes(str, Enum):
     MESSAGE = "msg"
     CONNECTIONS = "connections"
     DISCONNECT = "!disconnect"
+    DOYOUAGREE = "youagree"
+    AGREE = "agree"

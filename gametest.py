@@ -57,6 +57,9 @@ class GameMain(object):
 
             if self.status == 'connecting':
                 self.connection.connect_to_peers()
+                self.joined_players = connection.get_connected_peers()
+
+            num_connected = len(self.joined_players) + 1
     
             # Check for events
             events = pygame.event.get()
@@ -108,17 +111,35 @@ class GameMain(object):
                             self.wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
                     
             # Drawing graphics
-            screen.fill(pygame.Color('grey'))   
-            walls = self.create_walls(self.wall_positions, board_pos)
-            players = self.create_players(self.player_positions, board_pos)
-            walls.draw(screen)
-            players.draw(screen)
-            if not self.current_player == self.player_id:
-                text_surface = font.render("Please wait for your turn", True, black)
-                screen.blit(text_surface, (300, 50))
-            if self.current_player == self.player_id:
-                pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
-            screen.blit(board_surface, (board_pos))
+            screen.fill(pygame.Color('grey'))
+            if self.status == "connecting":
+                text_title = font.render("Multiplayer Quoridor", True, black)
+                text_subtitle = font.render("Waiting for players", True, black)
+                text_status = font.render(f"{num_connected} players joined", True, black)
+                screen.blit(text_title, (300, 250))
+                screen.blit(text_subtitle, (310, 280))
+                screen.blit(text_status, (320, 320))
+
+                if num_connected > 1:
+                    text_start = font.render("Press enter to start", True, black)
+                    screen.blit(text_start, (300, 350))
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            print('starting game')
+                            self.status = 'starting'
+                            connection.start_game()
+                
+            if self.status == "playing": 
+                walls = self.create_walls(self.wall_positions, board_pos)
+                players = self.create_players(self.player_positions, board_pos)
+                walls.draw(screen)
+                players.draw(screen)
+                if not self.current_player == self.player_id:
+                    text_surface = font.render("Please wait for your turn", True, black)
+                    screen.blit(text_surface, (300, 50))
+                if self.current_player == self.player_id:
+                    pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
+                screen.blit(board_surface, (board_pos))
             pygame.display.flip()
             clock.tick(60)
 
