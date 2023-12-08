@@ -60,7 +60,7 @@ class GameMain(object):
             if self.status == 'connecting':
                 self.connection.connect_to_peers()
                 self.joined_players = connection.get_connected_peers()
-                self.player_ids = connection.get_players()
+                self.player_ids = connection.get_player_ids()
 
             num_connected = len(self.joined_players) + 1
     

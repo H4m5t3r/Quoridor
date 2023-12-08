@@ -49,7 +49,8 @@ class Connection:
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
-            self.send_player_ids()
+            if host != socket.gethostname():
+                self.send_player_ids()
 
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
