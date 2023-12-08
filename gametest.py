@@ -49,6 +49,7 @@ class GameMain(object):
         black = (0, 0, 0)
 
         running = True
+
         while running:
             # Check for network messages
             msg = self.connection.read_message()
@@ -61,13 +62,15 @@ class GameMain(object):
 
             num_connected = len(self.joined_players) + 1
     
+            print(num_connected)
+            print(self.joined_players)
             # Check for events
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
                     self.connection.close()
                     running = False
-                
+
                 if True: #current_player == player_id:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_UP:
@@ -108,7 +111,8 @@ class GameMain(object):
                         rect = (x-(WALLSIZE/2), y-(TILESIZE), WALLSIZE, TILESIZE*2)
 
                     if event.type == pygame.MOUSEBUTTONDOWN:
-                            self.wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
+                        self.wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
+                        self.connection.send_message('msg', f'WALL,{board_pos_x},{board_pos_y},{wall_orientation}')
                     
             # Drawing graphics
             screen.fill(pygame.Color('grey'))
@@ -128,6 +132,7 @@ class GameMain(object):
                             print('starting game')
                             self.status = 'starting'
                             connection.start_game()
+                            self.status = "playing"
                 
             if self.status == "playing": 
                 walls = self.create_walls(self.wall_positions, board_pos)
@@ -199,6 +204,7 @@ class GameMain(object):
 
             case 'WALL':
                 print('wall message received')
+                self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
 
             case 'TURN':
                 print('turn message received')

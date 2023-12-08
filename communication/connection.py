@@ -1,4 +1,4 @@
-PORT = 5050
+PORT = 5052
 FORMAT = 'utf-8'
 
 import socket
@@ -25,6 +25,7 @@ class Connection:
             "agree_pawns": False,
             "agree_walls": False
             }
+        self.i_am_host = False
 
     def get_my_ip(self):
         localname = socket.gethostname()
@@ -46,6 +47,8 @@ class Connection:
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
+            self.send_players()
+
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
         except TimeoutError:
@@ -60,8 +63,13 @@ class Connection:
     def send_known_connections(self):
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
+    def send_players(self):
+        self.send_message(MessageTypes.PLAYERS, self.players)
+
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
+        self.i_am_host = True
+        self.players = {"P1": self.my_ip}
         self.socket.bind((self.host, PORT))
         self.socket.listen(4)
         Logger.log(f"Listening for connections on {self.host}:{PORT}")
@@ -139,6 +147,9 @@ class Connection:
     def get_connected_peers(self):
         return self.connections
 
+    def get_player_ids(self):
+        return self.ids
+
     # Handles a connection from another computer
     def handle_client(self, connection, address):
         while self.running:
@@ -184,6 +195,11 @@ class Connection:
                     else:
                         pass
 
+                if message_type == MessageTypes.PLAYERS:
+                    # if not self.i_am_host:?
+                    self.players = dict["data"]
+                    Logger.log("Updated players to", self.players)
+
             except socket.error:
                 break
 
@@ -192,7 +208,8 @@ class Connection:
         listen_thread = threading.Thread(target=self.listen_for_connections)
         listen_thread.start()
 
-        peers = ['Juha-Air', 'Juhas-Mac-mini']
+        # peers = ['Juha-Air', 'Juhas-Mac-mini']
+        peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
 
         for p in peers:
             peerip = socket.gethostbyname(p)
@@ -216,3 +233,4 @@ class MessageTypes(str, Enum):
     DISCONNECT = "!disconnect"
     DOYOUAGREE = "youagree"
     AGREE = "agree"
+    PLAYERS = "players"
