@@ -26,6 +26,7 @@ class GameMain(object):
         self.game_started = False
         self.status = 'connecting'
         self.joined_players = []
+        self.player_ids = []
         self.player_id = None
         self.current_player = None
         self.turn_index = 0
@@ -59,11 +60,12 @@ class GameMain(object):
             if self.status == 'connecting':
                 self.connection.connect_to_peers()
                 self.joined_players = connection.get_connected_peers()
+                self.player_ids = connection.get_players()
 
             num_connected = len(self.joined_players) + 1
     
-            print(num_connected)
-            print(self.joined_players)
+            # print(num_connected)
+            # print(self.joined_players)
             # Check for events
             events = pygame.event.get()
             for event in events:

@@ -1,4 +1,4 @@
-PORT = 5052
+PORT = 5051
 FORMAT = 'utf-8'
 
 import socket
@@ -44,6 +44,7 @@ class Connection:
             connection = socket.create_connection((host, PORT), timeout=10)
             self.connections.append(connection)
             self.addresses.append(host)
+            self.players["P" + str(len(self.players) + 1)] = host
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
@@ -69,7 +70,7 @@ class Connection:
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
         self.i_am_host = True
-        self.players = {"P1": self.my_ip}
+        self.players = {"P1": socket.gethostbyname()}
         self.socket.bind((self.host, PORT))
         self.socket.listen(4)
         Logger.log(f"Listening for connections on {self.host}:{PORT}")
@@ -147,8 +148,8 @@ class Connection:
     def get_connected_peers(self):
         return self.connections
 
-    def get_player_ids(self):
-        return self.ids
+    def get_players(self):
+        return self.players
 
     # Handles a connection from another computer
     def handle_client(self, connection, address):
@@ -198,7 +199,7 @@ class Connection:
                 if message_type == MessageTypes.PLAYERS:
                     # if not self.i_am_host:?
                     self.players = dict["data"]
-                    Logger.log("Updated players to", self.players)
+                    print("Updated players to", self.players)
 
             except socket.error:
                 break
