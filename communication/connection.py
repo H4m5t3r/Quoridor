@@ -1,4 +1,4 @@
-PORT = 5051
+PORT = 5050
 FORMAT = 'utf-8'
 
 import socket
@@ -25,7 +25,7 @@ class Connection:
             "agree_pawns": False,
             "agree_walls": False
             }
-        self.i_am_host = False
+        self.i_am_oldest = False
         self.player_ids = {}
 
     def get_my_ip(self):
@@ -71,9 +71,9 @@ class Connection:
 
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
-        self.i_am_host = True
-        self.player_ids = {"P1": socket.gethostname()}
+        # self.player_ids = {"P1": socket.gethostname()}
         self.socket.bind((self.host, PORT))
+        self.i_am_oldest = True
         self.socket.listen(4)
         Logger.log(f"Listening for connections on {self.host}:{PORT}")
 
@@ -200,7 +200,9 @@ class Connection:
 
                 if message_type == MessageTypes.PLAYERS:
                     # if not self.i_am_host:?
-                    self.player_ids = dict["data"]
+                    for player in dict["data"].keys():
+                        if not player in self.player_ids.keys():
+                            self.player_ids[player] = dict["data"][player]
                     print("Updated players to", self.player_ids)
 
             except socket.error:

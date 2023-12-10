@@ -30,7 +30,7 @@ class GameMain(object):
         self.player_id = None
         self.current_player = None
         self.turn_index = 0
-        self. player_positions = {
+        self.player_positions = {
             "P1": (5, 2),
             "P2": (5, 9),
             "P3": (1, 6),
