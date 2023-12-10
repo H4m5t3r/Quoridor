@@ -73,10 +73,11 @@ class Connection:
         self.send_message(MessageTypes.PLAYERS, self.player_ids)
         # pass
 
-    def update_player_ids(self, address):
+    def player_update(self, address):
         if address not in self.player_ids.values():
             new_player_id = "P" + str(len(self.player_ids) + 1)
             self.player_ids[new_player_id] = address
+            self.send_player_ids()
 
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
@@ -91,8 +92,7 @@ class Connection:
                 connection, address = self.socket.accept()
                 Logger.log(f"Accepted connection from {address}")
                 self.potential_connections.append(address[0])
-                self.update_player_ids()
-                self.send_player_ids()
+                self.player_update(address[0])
                 threading.Thread(target=self.handle_client, args=(connection, address)).start()
             except ConnectionAbortedError:
                 return
