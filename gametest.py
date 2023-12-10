@@ -2,7 +2,9 @@ TILESIZE = 50
 WALLSIZE = 8
 BOARDSIZE = 9
 PLAYER_COLORS = ('forestgreen', 'firebrick', 'gold2', 'royalblue')
+STARTING_POSITIONS = {"P1": (5, 1), "P2": (5, 9), "P3": (1, 5), "P4": (9, 5)}
 PLAYER_SIZE = TILESIZE/2 - 2
+MIN_NUM_OF_PLAYERS = 2
 
 # Import game stuff
 import pygame
@@ -30,7 +32,7 @@ class GameMain(object):
         self.player_id = None
         self.current_player = None
         self.turn_index = 0
-        self. player_positions = {
+        self.player_positions = {
             "P1": (5, 2),
             "P2": (5, 9),
             "P3": (1, 6),
@@ -62,6 +64,13 @@ class GameMain(object):
                 self.joined_players = connection.get_connected_peers()
                 self.player_ids = connection.get_player_ids()
 
+            if self.status == 'starting':
+                self.connection.start_game()
+                if connection.ready_to_start:
+                    self.player_id = connection.player_id
+                    self.current_player = 'P1'
+                    self.status = "playing"
+
             num_connected = len(self.joined_players) + 1
     
             # print(num_connected)
@@ -73,7 +82,7 @@ class GameMain(object):
                     self.connection.close()
                     running = False
 
-                if True: #current_player == player_id:
+                if self.current_player == self.player_id:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_UP:
                             new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] - 1)
@@ -81,6 +90,7 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.next_player()}')
 
                         if event.key == pygame.K_DOWN:
                             new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] + 1)
@@ -88,6 +98,7 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.next_player()}')
 
                         if event.key == pygame.K_LEFT:
                             new_pos = (self.player_positions[self.player_id][0] - 1, self.player_positions[self.player_id][1])
@@ -136,15 +147,13 @@ class GameMain(object):
                 screen.blit(text_subtitle, (310, 280))
                 screen.blit(text_status, (320, 320))
 
-                if num_connected > 1:
+                if num_connected >= MIN_NUM_OF_PLAYERS:
                     text_start = font.render("Press enter to start", True, black)
                     screen.blit(text_start, (300, 350))
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN:
                             print('starting game')
-                            self.status = 'starting'
-                            connection.start_game()
-                            self.status = "playing"
+                            self.status = "starting"
                 
             if self.status == "playing": 
                 walls = self.create_walls(self.wall_positions, board_pos)
@@ -219,6 +228,11 @@ class GameMain(object):
             if vpos1 in self.wall_positions or vpos2 in self.wall_positions:
                 return False 
         return True
+    
+    def next_player(self):
+        pindex = int(self.current_player[1])
+        next_player = (pindex) % (len(self.joined_players) + 1)
+        return f'P{next_player + 1}'
 
     def create_board_surf(self):
         board_surf = pygame.Surface(((TILESIZE + WALLSIZE) * BOARDSIZE - WALLSIZE, 
@@ -280,9 +294,16 @@ class GameMain(object):
 
             case 'TURN':
                 print('turn message received')
+                self.turn_index = int(parts[1])
+
+            case 'CURRENT_PLAYER':
+                print('player is', parts[1])
+                self.current_player = parts[1]
             
             case 'START':
                 print('start message received')
+                self.player_id = self.connection.player_id
+                self.status = "playing"
 
             case _:
                 print('unknown message')
