@@ -1,4 +1,4 @@
-PORT = 5050
+PORT = 5051
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -69,18 +69,11 @@ class Connection:
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
     def send_player_ids(self):
-        print("sending ids")
         self.send_message(MessageTypes.PLAYER_IDS, self.player_ids)
         # pass
 
     def player_update(self, ip):
-        print(self.player_ids)
-        print(ip)
-        print(self.player_ids.values())
-        print(type(self.player_ids.values()))
-        print(ip in set(self.player_ids.values()))
         if not ip in set(self.player_ids.values()):
-            print("yes")
             new_player_id = "P" + str(len(self.player_ids) + 1)
             self.player_ids[new_player_id] = ip
         # self.send_player_ids()
@@ -106,7 +99,6 @@ class Connection:
 
     # Sends a message to all connections
     def send_message(self, type, data):
-        print(data)
         dict = {"type": type, "data": data}
         message = json.dumps(dict).encode(FORMAT)
 
@@ -228,7 +220,7 @@ class Connection:
 
                 if message_type == MessageTypes.PLAYER_IDS:
                     self.players = dict["data"]
-                    Logger.log(f"Set playerlist to {self.players}")
+                    Logger.log(f"Set player list to {self.players}")
                     self.get_my_id()
 
                 if message_type == MessageTypes.PLAYERS:
