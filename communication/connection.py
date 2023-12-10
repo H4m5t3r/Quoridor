@@ -70,8 +70,8 @@ class Connection:
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
     def send_player_ids(self):
-        #self.send_message(MessageTypes.PLAYERS, self.player_ids)
-        pass
+        self.send_message(MessageTypes.PLAYERS, self.player_ids)
+        # pass
 
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
@@ -218,11 +218,10 @@ class Connection:
                     self.get_my_id()
 
                 if message_type == MessageTypes.PLAYERS:
-                    # if not self.i_am_host:?
-                    for player in dict["data"].keys():
-                        if not player in self.player_ids.keys():
-                            self.player_ids[player] = dict["data"][player]
-                    print("Updated players to", self.player_ids)
+                    Logger.log(f"Received player ids from {address}")
+                    if len(dict["data"].keys()) > self.player_ids.keys():
+                        self.player_ids = dict["data"]
+                        Logger.log(f"Updated players to {self.player_ids}")
 
             except socket.error:
                 break
@@ -240,8 +239,8 @@ class Connection:
         listen_thread = threading.Thread(target=self.listen_for_connections)
         listen_thread.start()
 
-        peers = ['Juha-Air', 'Juhas-Mac-mini']
-        # peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
+        # peers = ['Juha-Air', 'Juhas-Mac-mini']
+        peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
 
         for p in peers:
             peerip = socket.gethostbyname(p)
