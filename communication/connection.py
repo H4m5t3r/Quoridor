@@ -1,4 +1,4 @@
-PORT = 5050
+PORT = 5052
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -52,8 +52,8 @@ class Connection:
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
-            if host != socket.gethostname():
-                self.send_player_ids()
+            # if host != socket.gethostname():
+            #     self.send_player_ids()
 
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
@@ -73,6 +73,11 @@ class Connection:
         self.send_message(MessageTypes.PLAYERS, self.player_ids)
         # pass
 
+    def update_player_ids(self, address):
+        if address not in self.player_ids.values():
+            new_player_id = "P" + str(len(self.player_ids) + 1)
+            self.player_ids[new_player_id] = address
+
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
         # self.player_ids = {"P1": socket.gethostname()}
@@ -86,6 +91,8 @@ class Connection:
                 connection, address = self.socket.accept()
                 Logger.log(f"Accepted connection from {address}")
                 self.potential_connections.append(address[0])
+                self.update_player_ids()
+                self.send_player_ids()
                 threading.Thread(target=self.handle_client, args=(connection, address)).start()
             except ConnectionAbortedError:
                 return
@@ -219,7 +226,7 @@ class Connection:
 
                 if message_type == MessageTypes.PLAYERS:
                     Logger.log(f"Received player ids from {address}")
-                    if len(dict["data"].keys()) > self.player_ids.keys():
+                    if len(dict["data"].keys()) > len(self.player_ids.keys()):
                         self.player_ids = dict["data"]
                         Logger.log(f"Updated players to {self.player_ids}")
 
