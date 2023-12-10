@@ -90,7 +90,8 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
-                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.next_player()}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_DOWN:
                             new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] + 1)
@@ -98,7 +99,8 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
-                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.next_player()}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_LEFT:
                             new_pos = (self.player_positions[self.player_id][0] - 1, self.player_positions[self.player_id][1])
@@ -106,6 +108,8 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_RIGHT:
                             new_pos = (self.player_positions[self.player_id][0] + 1, self.player_positions[self.player_id][1])
@@ -113,6 +117,8 @@ class GameMain(object):
                                 self.player_positions[self.player_id] = new_pos
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_o:
                             if wall_orientation == 'h':
@@ -136,6 +142,8 @@ class GameMain(object):
                         if self.valid_wall_pos(wall):
                             self.wall_positions.append(wall)
                             self.connection.send_message('msg', f'WALL,{wall_pos_x},{wall_pos_y},{wall_orientation}')
+                            self.current_player = self.next_player()
+                            self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
                     
             # Drawing graphics
             screen.fill(pygame.Color('grey'))
@@ -163,6 +171,10 @@ class GameMain(object):
                 if not self.current_player == self.player_id:
                     text_surface = font.render("Please wait for your turn", True, black)
                     screen.blit(text_surface, (300, 50))
+                else:
+                    text_surface = font.render(f"Your turn {self.player_id}", True, black)
+                    screen.blit(text_surface, (350, 50))
+
                 if self.current_player == self.player_id:
                     pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
                 screen.blit(board_surface, (board_pos))
@@ -297,8 +309,8 @@ class GameMain(object):
                 self.turn_index = int(parts[1])
 
             case 'CURRENT_PLAYER':
-                print('player is', parts[1])
                 self.current_player = parts[1]
+                print('current player is', self.current_player)
             
             case 'START':
                 print('start message received')
