@@ -1,4 +1,4 @@
-PORT = 5052
+PORT = 5050
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -48,15 +48,14 @@ class Connection:
             connection = socket.create_connection((host, PORT), timeout=10)
             self.connections.append(connection)
             self.addresses.append(host)
-            self.player_ids["P" + str(len(self.player_ids) + 1)] = host
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
-            # if host != socket.gethostname():
-            #     self.send_player_ids()
+            self.send_player_ids()
 
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
+            self.player_ids = {"P1": self.my_ip}
         except TimeoutError:
             Logger.log(f'Connection to {host} timed out')
 
@@ -70,14 +69,21 @@ class Connection:
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
     def send_player_ids(self):
-        self.send_message(MessageTypes.PLAYERS, self.player_ids)
+        print("sending ids")
+        self.send_message(MessageTypes.PLAYER_IDS, self.player_ids)
         # pass
 
-    def player_update(self, address):
-        if address not in self.player_ids.values():
+    def player_update(self, ip):
+        print(self.player_ids)
+        print(ip)
+        print(self.player_ids.values())
+        print(type(self.player_ids.values()))
+        print(ip in set(self.player_ids.values()))
+        if not ip in set(self.player_ids.values()):
+            print("yes")
             new_player_id = "P" + str(len(self.player_ids) + 1)
-            self.player_ids[new_player_id] = address
-            self.send_player_ids()
+            self.player_ids[new_player_id] = ip
+        # self.send_player_ids()
 
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
@@ -100,6 +106,7 @@ class Connection:
 
     # Sends a message to all connections
     def send_message(self, type, data):
+        print(data)
         dict = {"type": type, "data": data}
         message = json.dumps(dict).encode(FORMAT)
 
@@ -226,9 +233,8 @@ class Connection:
 
                 if message_type == MessageTypes.PLAYERS:
                     Logger.log(f"Received player ids from {address}")
-                    if len(dict["data"].keys()) > len(self.player_ids.keys()):
-                        self.player_ids = dict["data"]
-                        Logger.log(f"Updated players to {self.player_ids}")
+                    self.player_ids = dict["data"]
+                    Logger.log(f"Updated players to {self.player_ids}")
 
             except socket.error:
                 break
