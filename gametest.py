@@ -2,7 +2,9 @@ TILESIZE = 50
 WALLSIZE = 8
 BOARDSIZE = 9
 PLAYER_COLORS = ('forestgreen', 'firebrick', 'gold2', 'royalblue')
+STARTING_POSITIONS = {"P1": (5, 1), "P2": (5, 9), "P3": (1, 5), "P4": (9, 5)}
 PLAYER_SIZE = TILESIZE/2 - 2
+MIN_NUM_OF_PLAYERS = 2
 
 # Import game stuff
 import pygame
@@ -62,6 +64,13 @@ class GameMain(object):
                 self.joined_players = connection.get_connected_peers()
                 self.player_ids = connection.get_player_ids()
 
+            if self.status == 'starting':
+                self.connection.start_game()
+                if connection.ready_to_start:
+                    self.player_id = connection.player_id
+                    self.current_player = 'P1'
+                    self.status = "playing"
+
             num_connected = len(self.joined_players) + 1
     
             # print(num_connected)
@@ -73,27 +82,43 @@ class GameMain(object):
                     self.connection.close()
                     running = False
 
-                if True: #current_player == player_id:
+                if self.current_player == self.player_id:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_UP:
-                            self.player_positions['P1'] = (self.player_positions['P1'][0], self.player_positions['P1'][1] - 1)
-                            x, y = self.player_positions['P1']
-                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
+                            new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] - 1)
+                            if self.valid_move(self.player_positions[self.player_id], new_pos):
+                                self.player_positions[self.player_id] = new_pos
+                                x, y = self.player_positions[self.player_id]
+                                self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_DOWN:
-                            self.player_positions['P1'] = (self.player_positions['P1'][0], self.player_positions['P1'][1] + 1)
-                            x, y = self.player_positions['P1']
-                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
+                            new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] + 1)
+                            if self.valid_move(self.player_positions[self.player_id], new_pos):
+                                self.player_positions[self.player_id] = new_pos
+                                x, y = self.player_positions[self.player_id]
+                                self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_LEFT:
-                            self.player_positions['P1'] = (self.player_positions['P1'][0] - 1, self.player_positions['P1'][1])
-                            x, y = self.player_positions['P1']
-                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
+                            new_pos = (self.player_positions[self.player_id][0] - 1, self.player_positions[self.player_id][1])
+                            if self.valid_move(self.player_positions[self.player_id], new_pos):
+                                self.player_positions[self.player_id] = new_pos
+                                x, y = self.player_positions[self.player_id]
+                                self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_RIGHT:
-                            self.player_positions['P1'] = (self.player_positions['P1'][0] + 1, self.player_positions['P1'][1])
-                            x, y = self.player_positions['P1']
-                            self.connection.send_message('msg', f'PAWN,P1,{x},{y}')
+                            new_pos = (self.player_positions[self.player_id][0] + 1, self.player_positions[self.player_id][1])
+                            if self.valid_move(self.player_positions[self.player_id], new_pos):
+                                self.player_positions[self.player_id] = new_pos
+                                x, y = self.player_positions[self.player_id]
+                                self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
+                                self.current_player = self.next_player()
+                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_o:
                             if wall_orientation == 'h':
@@ -102,10 +127,10 @@ class GameMain(object):
                                 wall_orientation = 'h'
 
                     mousex, mousey = pygame.mouse.get_pos()
-                    board_pos_x = (round((mousex - board_pos[0] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
-                    board_pos_y = (round((mousey - board_pos[1] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
+                    wall_pos_x = (round((mousex - board_pos[0] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
+                    wall_pos_y = (round((mousey - board_pos[1] + (WALLSIZE / 2)) / (TILESIZE + WALLSIZE)))
 
-                    x, y = self.get_wall_coordinates((board_pos_x, board_pos_y), board_pos)
+                    x, y = self.get_wall_coordinates((wall_pos_x, wall_pos_y), board_pos)
 
                     if wall_orientation == 'h':
                         rect = (x-(TILESIZE), y-(WALLSIZE/2), TILESIZE*2, WALLSIZE)
@@ -113,8 +138,12 @@ class GameMain(object):
                         rect = (x-(WALLSIZE/2), y-(TILESIZE), WALLSIZE, TILESIZE*2)
 
                     if event.type == pygame.MOUSEBUTTONDOWN:
-                        self.wall_positions.append((board_pos_x, board_pos_y, wall_orientation))
-                        self.connection.send_message('msg', f'WALL,{board_pos_x},{board_pos_y},{wall_orientation}')
+                        wall = (wall_pos_x, wall_pos_y, wall_orientation)
+                        if self.valid_wall_pos(wall):
+                            self.wall_positions.append(wall)
+                            self.connection.send_message('msg', f'WALL,{wall_pos_x},{wall_pos_y},{wall_orientation}')
+                            self.current_player = self.next_player()
+                            self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
                     
             # Drawing graphics
             screen.fill(pygame.Color('grey'))
@@ -126,15 +155,13 @@ class GameMain(object):
                 screen.blit(text_subtitle, (310, 280))
                 screen.blit(text_status, (320, 320))
 
-                if num_connected > 1:
+                if num_connected >= MIN_NUM_OF_PLAYERS:
                     text_start = font.render("Press enter to start", True, black)
                     screen.blit(text_start, (300, 350))
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN:
                             print('starting game')
-                            self.status = 'starting'
-                            connection.start_game()
-                            self.status = "playing"
+                            self.status = "starting"
                 
             if self.status == "playing": 
                 walls = self.create_walls(self.wall_positions, board_pos)
@@ -144,11 +171,80 @@ class GameMain(object):
                 if not self.current_player == self.player_id:
                     text_surface = font.render("Please wait for your turn", True, black)
                     screen.blit(text_surface, (300, 50))
+                else:
+                    text_surface = font.render(f"Your turn {self.player_id}", True, black)
+                    screen.blit(text_surface, (350, 50))
+
                 if self.current_player == self.player_id:
                     pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
                 screen.blit(board_surface, (board_pos))
             pygame.display.flip()
             clock.tick(60)
+
+    # Check if pawn move is possible
+    def valid_move(self, startpos, endpos):
+        # check other pawns
+        for playerpos in self.player_positions.values():
+            if endpos == playerpos:
+                return False
+            
+        # check for board edges
+        for value in endpos:
+            if value < 1 or value > BOARDSIZE:
+                return False
+            
+        # check for walls
+        deltax = endpos[0] - startpos[0]
+        deltay = endpos[1] - startpos[1]
+
+        # horizontal moves
+        if not deltax == 0:
+            blocking_wall1 = (min(startpos[0], endpos[0]), startpos[1], 'v')
+            blocking_wall2 = (min(startpos[0], endpos[0]), startpos[1] - 1, 'v')
+            if blocking_wall1 in self.wall_positions or blocking_wall2 in self.wall_positions:
+                return False
+        
+        # vertical moves
+        if not deltay == 0:
+            blocking_wall1 = (startpos[0], min(startpos[1], endpos[1]), 'h')
+            blocking_wall2 = (startpos[0] - 1, min(startpos[1], endpos[1]), 'h')
+            if blocking_wall1 in self.wall_positions or blocking_wall2 in self.wall_positions:
+                return False   
+        return True
+    
+    # check if wall position is possible
+    def valid_wall_pos(self, pos):
+        # check for board edges
+        if pos[0] < 1 or pos[0] > BOARDSIZE - 1 or pos[1] < 1 or pos[1] > BOARDSIZE - 1:
+            return False
+        
+        if len(self.wall_positions) == 0:
+            return True
+
+        # check if there is already a wall in the pos
+        for wall in self.wall_positions:
+            if (wall[0], wall[1]) == (pos[0], pos[1]):
+                return False
+        
+        # check for overlapping horizontal walls
+        if wall[2] == 'h':
+            hpos1 = (pos[0] - 1, pos[1], 'h')
+            hpos2 = (pos[0] + 1, pos[1], 'h')
+            if hpos1 in self.wall_positions or hpos2 in self.wall_positions:
+                return False
+        
+        # check for overlapping vertical walls
+        if wall[2] == 'v':
+            vpos1 = (pos[0], pos[1] - 1, 'v')
+            vpos2 = (pos[0], pos[1] + 1, 'v')
+            if vpos1 in self.wall_positions or vpos2 in self.wall_positions:
+                return False 
+        return True
+    
+    def next_player(self):
+        pindex = int(self.current_player[1])
+        next_player = (pindex) % (len(self.joined_players) + 1)
+        return f'P{next_player + 1}'
 
     def create_board_surf(self):
         board_surf = pygame.Surface(((TILESIZE + WALLSIZE) * BOARDSIZE - WALLSIZE, 
@@ -210,41 +306,21 @@ class GameMain(object):
 
             case 'TURN':
                 print('turn message received')
+                self.turn_index = int(parts[1])
+
+            case 'CURRENT_PLAYER':
+                self.current_player = parts[1]
+                print('current player is', self.current_player)
             
             case 'START':
                 print('start message received')
+                self.player_id = self.connection.player_id
+                self.status = "playing"
 
             case _:
                 print('unknown message')
 
-    # def joinGame(client, address):
-    #     global player_id_to_address
-    #     player_id_to_address["P2"] = address
-    #     print("P2", address, "joined")
-
-    # def passTurn(client=None):
-    #     global current_player
-    #     if current_player == 'P1':
-    #         current_player = 'P2'
-    #     elif current_player == 'P2':
-    #         current_player = 'P1'
-    #     else:
-    #         current_player = 'P1'
-    #     # global turn_index
-    #     # turn_index += 1
-    #     # global joined_players
-    #     # if turn_index >= len(joined_players):
-    #     #     turn_index = 0
-
 if __name__ == '__main__':
     connection = Connection("0.0.0.0")
     connection.start()
-    # wait for socket to be created
-    # and for other games to start
-    # import time
-    # time.sleep(5)
-
-    # # try to connect to nodes on other computers on the list
-    # peers = ['Juha-Air']
-    # connection.connect_to_peers(peers)
     GameMain(connection)

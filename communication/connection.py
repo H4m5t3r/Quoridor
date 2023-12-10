@@ -1,5 +1,6 @@
 PORT = 5050
 FORMAT = 'utf-8'
+DEBUG = True
 
 import socket
 import threading
@@ -17,7 +18,7 @@ class Connection:
         self.messages = deque()
         self.running = True
         self.my_ip = self.get_my_ip()
-        self.awaiting_agreement = "agree_players"
+        self.awaiting_agreement_on = None
         self.agreements = {}
         self.players = {}
         self.state = {
@@ -27,6 +28,8 @@ class Connection:
             }
         self.i_am_oldest = False
         self.player_ids = {}
+        self.player_id = None
+        self.ready_to_start = False
 
     def get_my_ip(self):
         localname = socket.gethostname()
@@ -67,7 +70,8 @@ class Connection:
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
     def send_player_ids(self):
-        self.send_message(MessageTypes.PLAYERS, self.player_ids)
+        #self.send_message(MessageTypes.PLAYERS, self.player_ids)
+        pass
 
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
@@ -120,18 +124,20 @@ class Connection:
             return False
 
     def get_agreement(self, variable, state):
-        self.awaiting_agreement = True
+        Logger.debug(f'get agreement on {variable}')
+        self.awaiting_agreement_on = variable
         self.agreements[self.my_ip] = True
         agreement = {"variable": variable, "data": state}
         self.send_message(MessageTypes.DOYOUAGREE, agreement)
 
     def __generate_playerlist(self):
+        Logger.debug('generating playerlist')
         adds = self.addresses.copy()
         adds.append(self.my_ip)
         adds.sort()
         pdict = {}
         for i in range(0, len(adds)):
-            pdict[f"P{i}"] = adds[i]
+            pdict[f"P{i+1}"] = adds[i]
         self.players = pdict
     
     def __all_agree(self, dict):
@@ -141,11 +147,16 @@ class Connection:
         return True
 
     def start_game(self):
-        if self.state["agree_players"] == False:
+        if self.state["agree_players"] == False and self.awaiting_agreement_on == None:
             self.__generate_playerlist()
             self.get_agreement("agree_players", self.players)
-        else:
-            Logger.log("Agreed on player list and order")
+        if self.ready_to_start == False and self.state["agree_players"]:
+            self.ready_to_start = True
+            self.send_message(MessageTypes.MESSAGE, "CURRENT_PLAYER,P1")
+            print('ready to start')
+            import time
+            time.sleep(1)
+            self.send_message(MessageTypes.MESSAGE, "START")
         
     def get_connected_peers(self):
         return self.connections
@@ -159,6 +170,7 @@ class Connection:
             try:
                 msg = connection.recv(1024)
                 dict = json.loads(msg.decode(FORMAT))
+                
                 message_type = dict["type"]
                 Logger.log(f"Received message from {connection.getpeername()}: {msg}")
 
@@ -181,22 +193,29 @@ class Connection:
 
                 if message_type == MessageTypes.DOYOUAGREE:
                     answer = self.agree(dict["data"]["variable"], dict["data"]["data"])
-                    print(answer)
                     data = {"ip": self.my_ip, "answer": answer}
                     self.send_message(MessageTypes.AGREE, data)
 
                 if message_type == MessageTypes.AGREE:
-                    if not self.awaiting_agreement == None:
+                    if not self.awaiting_agreement_on == None:
                         self.agreements[dict["data"]["ip"]] = dict["data"]["answer"]
                         if len(self.agreements) == len(self.addresses) + 1:
                             if self.__all_agree(self.agreements):
-                                print("all agree")
-                                self.state[self.awaiting_agreement] = True
-                                self.awaiting_agreement = None
+                                Logger.debug(f"all nodes agreed on {self.awaiting_agreement_on}")
+                                if self.awaiting_agreement_on == "agree_players":
+                                    self.send_message(MessageTypes.PLAYER_IDS, self.players)
+                                    self.get_my_id()
+                                self.state[self.awaiting_agreement_on] = True
+                                self.awaiting_agreement_on = None
                             else:
                                 print("no agreement")
                     else:
                         pass
+
+                if message_type == MessageTypes.PLAYER_IDS:
+                    self.players = dict["data"]
+                    Logger.log(f"Set playerlist to {self.players}")
+                    self.get_my_id()
 
                 if message_type == MessageTypes.PLAYERS:
                     # if not self.i_am_host:?
@@ -207,14 +226,22 @@ class Connection:
 
             except socket.error:
                 break
+            except json.JSONDecodeError:
+                    Logger.debug(f"Error parsing json: {msg}")
+
+    def get_my_id(self):
+        for id in self.players:
+            if self.players[id] == self.my_ip:
+                self.player_id = id
+                print('set my id to ', self.player_id)
 
     # Starts a thread that listens to new connections
     def start(self):
         listen_thread = threading.Thread(target=self.listen_for_connections)
         listen_thread.start()
 
-        # peers = ['Juha-Air', 'Juhas-Mac-mini']
-        peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
+        peers = ['Juha-Air', 'Juhas-Mac-mini']
+        # peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
 
         for p in peers:
             peerip = socket.gethostbyname(p)
@@ -232,6 +259,10 @@ class Logger():
     def log(message):
         print(message)
 
+    def debug(message):
+        if DEBUG:
+            print(message)
+
 class MessageTypes(str, Enum):
     MESSAGE = "msg"
     CONNECTIONS = "connections"
@@ -239,3 +270,4 @@ class MessageTypes(str, Enum):
     DOYOUAGREE = "youagree"
     AGREE = "agree"
     PLAYERS = "players"
+    PLAYER_IDS = "playerids"
