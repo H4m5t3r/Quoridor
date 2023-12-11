@@ -14,6 +14,9 @@ from game.player import Player
 # Import network stuff
 from communication.connection import Connection
 
+# Pulse for alive checking
+import time
+
 # Init game and window
 pygame.init()
 resolution = (900, 720)
@@ -38,6 +41,7 @@ class GameMain(object):
             "P4": (9, 5)
         }
         self.wall_positions = [(1,1,'h'), (5,2,'v'), (5,8,'h')]
+        self.turn_alive = None
 
         self.runGame()
     
@@ -51,6 +55,8 @@ class GameMain(object):
         black = (0, 0, 0)
 
         running = True
+
+        last_still_awake = time.time()
 
         while running:
             # Check for network messages
@@ -81,6 +87,10 @@ class GameMain(object):
                     running = False
 
                 if self.current_player == self.player_id:
+                    if last_still_awake > 5:
+                        last_still_awake = time.time()
+                        connection.send_message('stillawake', last_still_awake)
+
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_UP:
                             new_pos = (self.player_positions[self.player_id][0], self.player_positions[self.player_id][1] - 1)
@@ -167,8 +177,12 @@ class GameMain(object):
                 walls.draw(screen)
                 players.draw(screen)
                 if not self.current_player == self.player_id:
-                    text_surface = font.render("Please wait for your turn", True, black)
-                    screen.blit(text_surface, (300, 50))
+                    if self.connection.get_last_awake_time() > 5:
+                        text_surface = font.render("Waiting for current player to reconnect", True, black)
+                        screen.blit(text_surface, (300, 50))
+                    else:
+                        text_surface = font.render("Please wait for your turn", True, black)
+                        screen.blit(text_surface, (300, 50))
                 else:
                     text_surface = font.render(f"Your turn {self.player_id}", True, black)
                     screen.blit(text_surface, (350, 50))

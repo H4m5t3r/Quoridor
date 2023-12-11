@@ -7,6 +7,7 @@ import threading
 import json
 from collections import deque
 from enum import Enum
+import time
 
 class Connection:
     def __init__(self, host):
@@ -28,11 +29,15 @@ class Connection:
             }
         self.player_id = None
         self.ready_to_start = False
+        self.last_awake_time = time.time()
 
     def get_my_ip(self):
         localname = socket.gethostname()
         IP = socket.gethostbyname(localname)
         return IP
+    
+    def get_last_awake_time(self):
+        return self.last_awake_time
     
         # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # s.connect(("8.8.8.8", 80))
@@ -67,12 +72,11 @@ class Connection:
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
         self.socket.bind((self.host, PORT))
-        self.i_am_oldest = True
         self.socket.listen(4)
         Logger.log(f"Listening for connections on {self.host}:{PORT}")
 
         while self.running:
-            try: 
+            try:
                 connection, address = self.socket.accept()
                 Logger.log(f"Accepted connection from {address}")
                 self.potential_connections.append(address[0])
@@ -204,6 +208,10 @@ class Connection:
                     Logger.log(f"Set player list to {self.players}")
                     self.get_my_id()
 
+                if message_type == MessageTypes.STILL_AWAKE:
+                    self.last_awake_time = dict["data"]
+                    Logger.log(f"Current player is still awake")
+
             except socket.error:
                 break
             except json.JSONDecodeError:
@@ -250,3 +258,4 @@ class MessageTypes(str, Enum):
     DOYOUAGREE = "youagree"
     AGREE = "agree"
     PLAYER_IDS = "playerids"
+    STILL_AWAKE = "stillawake"
