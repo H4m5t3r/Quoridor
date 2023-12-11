@@ -56,7 +56,7 @@ class GameMain(object):
 
         running = True
 
-        last_still_awake = time.time()
+        last_still_awake = self.connection.get_last_awake_time()
 
         while running:
             # Check for network messages
@@ -87,10 +87,6 @@ class GameMain(object):
                     running = False
 
                 if self.current_player == self.player_id:
-                    current_time = time.time()
-                    if current_time - last_still_awake > 5:
-                        last_still_awake = time.time()
-                        connection.send_message('stillawake', last_still_awake)
 
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_UP:
@@ -154,6 +150,12 @@ class GameMain(object):
                             self.current_player = self.next_player()
                             self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
                     
+            if self.current_player == self.player_id:
+                current_time = time.time()
+                if current_time - last_still_awake > 5:
+                    last_still_awake = last_still_awake = self.connection.get_last_awake_time()
+                    connection.send_message('stillawake', last_still_awake)
+
             # Drawing graphics
             screen.fill(pygame.Color('grey'))
             if self.status == "connecting":
@@ -178,7 +180,7 @@ class GameMain(object):
                 walls.draw(screen)
                 players.draw(screen)
                 if not self.current_player == self.player_id:
-                    if time.time() - self.connection.get_last_awake_time() > 5:
+                    if time.time() - self.connection.get_last_awake_time() > 30:
                         text_surface = font.render("Waiting for current player to reconnect", True, black)
                         screen.blit(text_surface, (300, 50))
                     else:

@@ -1,4 +1,4 @@
-PORT = 5050
+PORT = 5051
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -34,7 +34,7 @@ class Connection:
     def get_my_ip(self):
         localname = socket.gethostname()
         # Dummy fix for home network
-        if localname in ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']:
+        if localname in ['lx9-fuxi101', 'anton-msb08911']:
             localname = localname + "-Ethernet"
         IP = socket.gethostbyname(localname)
         return IP
