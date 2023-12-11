@@ -178,9 +178,6 @@ class GameMain(object):
 
            if self.current_player == self.player_id:
                current_time = time.time()
-               print(current_time)
-               print(self.connection.get_last_awake_time())
-               print(current_time - self.connection.get_last_awake_time())
                if current_time - self.connection.get_last_awake_time() > 5:
                    # last_still_awake = current_time
                    self.connection.send_message('stillawake', current_time)
