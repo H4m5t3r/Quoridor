@@ -1,4 +1,4 @@
-PORT = 5051
+PORT = 5052
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -26,8 +26,6 @@ class Connection:
             "agree_pawns": False,
             "agree_walls": False
             }
-        self.i_am_oldest = False
-        self.player_ids = {}
         self.player_id = None
         self.ready_to_start = False
 
@@ -51,11 +49,9 @@ class Connection:
             Logger.log(f"Connection created to {host}:{PORT}")
 
             self.send_known_connections()
-            self.send_player_ids()
 
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
-            self.player_ids = {"P1": self.my_ip}
         except TimeoutError:
             Logger.log(f'Connection to {host} timed out')
 
@@ -68,19 +64,8 @@ class Connection:
     def send_known_connections(self):
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
-    def send_player_ids(self):
-        self.send_message(MessageTypes.PLAYER_IDS, self.player_ids)
-        # pass
-
-    def player_update(self, ip):
-        if not ip in set(self.player_ids.values()):
-            new_player_id = "P" + str(len(self.player_ids) + 1)
-            self.player_ids[new_player_id] = ip
-        # self.send_player_ids()
-
     # Function for accepting new connections and creating threads for them
     def listen_for_connections(self):
-        # self.player_ids = {"P1": socket.gethostname()}
         self.socket.bind((self.host, PORT))
         self.i_am_oldest = True
         self.socket.listen(4)
@@ -91,7 +76,6 @@ class Connection:
                 connection, address = self.socket.accept()
                 Logger.log(f"Accepted connection from {address}")
                 self.potential_connections.append(address[0])
-                self.player_update(address[0])
                 threading.Thread(target=self.handle_client, args=(connection, address)).start()
             except ConnectionAbortedError:
                 return
@@ -167,9 +151,6 @@ class Connection:
     def get_connected_peers(self):
         return self.connections
 
-    def get_player_ids(self):
-        return self.player_ids
-
     # Handles a connection from another computer
     def handle_client(self, connection, address):
         while self.running:
@@ -223,11 +204,6 @@ class Connection:
                     Logger.log(f"Set player list to {self.players}")
                     self.get_my_id()
 
-                if message_type == MessageTypes.PLAYERS:
-                    Logger.log(f"Received player ids from {address}")
-                    self.player_ids = dict["data"]
-                    Logger.log(f"Updated players to {self.player_ids}")
-
             except socket.error:
                 break
             except json.JSONDecodeError:
@@ -273,5 +249,4 @@ class MessageTypes(str, Enum):
     DISCONNECT = "!disconnect"
     DOYOUAGREE = "youagree"
     AGREE = "agree"
-    PLAYERS = "players"
     PLAYER_IDS = "playerids"
