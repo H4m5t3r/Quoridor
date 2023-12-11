@@ -1,4 +1,4 @@
-PORT = 5052
+PORT = 5050
 FORMAT = 'utf-8'
 DEBUG = True
 
@@ -33,6 +33,9 @@ class Connection:
 
     def get_my_ip(self):
         localname = socket.gethostname()
+        # Dummy fix for home network
+        if localname in ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']:
+            localname = localname + "-Ethernet"
         IP = socket.gethostbyname(localname)
         return IP
     
@@ -229,7 +232,7 @@ class Connection:
         listen_thread.start()
 
         # peers = ['Juha-Air', 'Juhas-Mac-mini']
-        peers = ['lx9-fuxi101-Wireless', 'anton-msb08911-Ethernet']
+        peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
 
         for p in peers:
             peerip = socket.gethostbyname(p)

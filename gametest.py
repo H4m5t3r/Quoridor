@@ -87,7 +87,8 @@ class GameMain(object):
                     running = False
 
                 if self.current_player == self.player_id:
-                    if last_still_awake > 5:
+                    current_time = time.time()
+                    if current_time - last_still_awake > 5:
                         last_still_awake = time.time()
                         connection.send_message('stillawake', last_still_awake)
 
@@ -177,7 +178,7 @@ class GameMain(object):
                 walls.draw(screen)
                 players.draw(screen)
                 if not self.current_player == self.player_id:
-                    if self.connection.get_last_awake_time() > 5:
+                    if time.time() - self.connection.get_last_awake_time() > 5:
                         text_surface = font.render("Waiting for current player to reconnect", True, black)
                         screen.blit(text_surface, (300, 50))
                     else:
