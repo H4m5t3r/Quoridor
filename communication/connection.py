@@ -113,7 +113,6 @@ class Connection:
         if len(message) > 1024:
             Logger.log('message too long')
 
-
         for connection in self.connections:
             try:
                 connection.send(send_length+message)
@@ -172,8 +171,6 @@ class Connection:
         if self.ready_to_start == False and self.state["agree_players"]:
             self.ready_to_start = True
             self.send_message(MessageTypes.MESSAGE, "CURRENT_PLAYER,P1")
-            print('ready to start')
-            import time
             self.send_message(MessageTypes.MESSAGE, "START")
       
     def get_connected_peers(self):
@@ -182,7 +179,8 @@ class Connection:
 
     # Handles a connection from another computer
     def handle_client(self, connection, address):
-        while self.running:
+        connected = True
+        while connected:
             try:
                 msg_length = connection.recv(HEADER).decode(FORMAT)
                 msg_length = int(msg_length)
@@ -193,7 +191,6 @@ class Connection:
                 message_type = dict["type"]
                 Logger.log(f"Received message from {connection.getpeername()}: {msg}")
 
-
                 if message_type == MessageTypes.MESSAGE:
                     self.messages.append(dict["data"])
                 
@@ -202,22 +199,22 @@ class Connection:
                     for conn in dict["data"]:
                         self.potential_connections.append(conn)
 
-
                 if message_type == MessageTypes.DISCONNECT:
+                    remaining_players = []
                     for conn in self.connections:
                         if conn.getpeername()[0] == connection.getpeername()[0]:
                             conn.close()
                             self.addresses.remove(connection.getpeername()[0])
+                        else:
+                            remaining_players.append(conn)
                     connection.close()
-                    self.running = False
-                    Logger.log(f"Connection from {address} closed.")
-
+                    self.connections = remaining_players
+                    connected = False
 
                 if message_type == MessageTypes.DOYOUAGREE:
                     answer = self.agree(dict["data"]["variable"], dict["data"]["data"])
                     data = {"ip": self.my_ip, "answer": answer}
                     self.send_message(MessageTypes.AGREE, data)
-
 
                 if message_type == MessageTypes.AGREE:
                     if not self.awaiting_agreement_on == None:
@@ -235,22 +232,20 @@ class Connection:
                     else:
                         pass
 
-
                 if message_type == MessageTypes.PLAYER_IDS:
                     self.players = dict["data"]
                     Logger.log(f"Set player list to {self.players}")
                     self.get_my_id()
 
-
                 if message_type == MessageTypes.STILL_AWAKE:
                     self.last_awake_time = dict["data"]
                     Logger.log(f"Current player is still awake")
-
 
             except socket.error:
                 break
             except json.JSONDecodeError:
                     Logger.debug(f"Error parsing json: {msg}")
+        Logger.log(f"Connection from {address} closed.")
 
 
     def get_my_id(self):
@@ -266,8 +261,8 @@ class Connection:
         listen_thread.start()
 
 
-        # peers = ['Juha-Air', 'Juhas-Mac-mini']
-        peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
+        peers = ['Juha-Air', 'Juhas-Mac-mini']
+        # peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
 
 
         for p in peers:
