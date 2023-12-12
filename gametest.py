@@ -326,6 +326,7 @@ class GameMain(object):
             case 'START':
                 print('start message received')
                 self.player_id = self.connection.player_id
+                self.populate_playerlist(len(self.joined_players) + 1)
                 self.status = "playing"
 
 
