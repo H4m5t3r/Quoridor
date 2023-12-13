@@ -40,6 +40,7 @@ class GameMain(object):
         self.wall_positions = []
         self.turn_alive = None
         self.last_heartbeat = time.time()
+        self.winning_player = None
         self.runGame()
     
     def runGame(self):
@@ -71,7 +72,7 @@ class GameMain(object):
                     self.current_player = 'P1'
                     self.status = "playing"
                     
-            if self.current_player == self.player_id:
+            if self.current_player and self.current_player == self.player_id:
                 current_time = time.time()
                 if current_time - self.last_heartbeat > 5:
                     self.last_heartbeat = time.time()
@@ -104,12 +105,14 @@ class GameMain(object):
                         if new_pos:
                             if self.valid_move(self.player_positions[self.player_id], new_pos):
                                 self.player_positions[self.player_id] = new_pos
-                                if self.check_for_win():
-                                    print(f'player {self.player_id} won')
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
-                                self.current_player = self.next_player()
-                                self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
+                                self.check_for_win()
+                                if self.winning_player:
+                                    self.connection.send_message('msg', 'WIN')
+                                else:
+                                    self.current_player = self.next_player()
+                                    self.connection.send_message('msg', f'CURRENT_PLAYER,{self.current_player}')
 
                         if event.key == pygame.K_o:
                             if wall_orientation == 'h':
@@ -159,20 +162,25 @@ class GameMain(object):
                 players = self.create_players(self.player_positions, board_pos)
                 walls.draw(screen)
                 players.draw(screen)
-                if not self.current_player == self.player_id:
-                    if time.time() - self.last_heartbeat > 10:
-                        text_surface = font.render("Waiting for current player to reconnect", True, black)
-                        screen.blit(text_surface, (300, 50))
-                    else:
-                        text_surface = font.render("Please wait for your turn", True, black)
-                        screen.blit(text_surface, (300, 50))
+                if self.winning_player:
+                    text_won = font.render(f"Player {self.winning_player} won!", True, black)
+                    screen.blit(text_won, (350, 50))
                 else:
-                    text_surface = font.render(f"Your turn {self.player_id}", True, black)
-                    screen.blit(text_surface, (350, 50))
+                    if not self.current_player == self.player_id:
+                        if time.time() - self.last_heartbeat > 10:
+                            text_surface = font.render("Waiting for current player to reconnect", True, black)
+                            screen.blit(text_surface, (300, 50))
+                        else:
+                            text_surface = font.render("Please wait for your turn", True, black)
+                            screen.blit(text_surface, (300, 50))
+                    else:
+                        text_surface = font.render(f"Your turn {self.player_id}", True, black)
+                        screen.blit(text_surface, (350, 50))
 
                 if self.current_player == self.player_id:
                     pygame.draw.rect(screen, (255, 0, 0, 50), rect, 2)
                 screen.blit(board_surface, (board_pos))
+                
             pygame.display.flip()
             clock.tick(60)
 
@@ -238,15 +246,16 @@ class GameMain(object):
                 return False 
         return True
     
-    # Check if player has won
+    
+    # Check if a player has won
     def check_for_win(self):
-        ppos = self.player_positions[self.player_id]
-        colrow, wpos = WINNING_POSITIONS[self.player_id]
-        if colrow == "col" and ppos[0] == wpos:
-            return True
-        elif colrow == "row" and ppos[1] == wpos:
-            return True
-        return False
+        for player in self.player_positions:
+            ppos = self.player_positions[player]
+            colrow, wpos = WINNING_POSITIONS[player]
+            if colrow == "col" and ppos[0] == wpos:
+                self.winning_player = player
+            elif colrow == "row" and ppos[1] == wpos:
+                self.winning_player = player
     
 
     # Returns the id of the next player
@@ -350,6 +359,10 @@ class GameMain(object):
             case 'STILL_AWAKE':
                 print('heartbeat received')
                 self.last_heartbeat = time.time()
+                
+            case 'WIN':
+                print('winning message received')
+                self.check_for_win()
 
 
             case _:
