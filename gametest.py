@@ -3,6 +3,7 @@ WALLSIZE = 8
 BOARDSIZE = 9
 PLAYER_COLORS = ('forestgreen', 'firebrick', 'gold2', 'royalblue')
 STARTING_POSITIONS = {"P1": (5, 1), "P2": (5, 9), "P3": (1, 5), "P4": (9, 5)}
+WINNING_POSITIONS = {"P1": ("row", 9), "P2": ("row", 1), "P3": ("col", 9), "P4": ("col", 1)}
 PLAYER_SIZE = TILESIZE/2 - 2
 MIN_NUM_OF_PLAYERS = 2
 
@@ -38,6 +39,7 @@ class GameMain(object):
         self.player_positions = {}
         self.wall_positions = []
         self.turn_alive = None
+        self.last_heartbeat = time.time()
         self.runGame()
     
     def runGame(self):
@@ -50,8 +52,6 @@ class GameMain(object):
         black = (0, 0, 0)
 
         running = True
-
-        last_still_awake = time.time()
 
         while running:
             # Check for network messages
@@ -70,6 +70,12 @@ class GameMain(object):
                     self.player_id = connection.player_id
                     self.current_player = 'P1'
                     self.status = "playing"
+                    
+            if self.current_player == self.player_id:
+                current_time = time.time()
+                if current_time - self.last_heartbeat > 5:
+                    self.last_heartbeat = time.time()
+                    connection.send_message('msg', 'STILL_AWAKE')
 
             num_connected = len(self.joined_players) + 1
     
@@ -81,11 +87,6 @@ class GameMain(object):
                     running = False
 
                 if self.current_player == self.player_id:
-                    current_time = time.time()
-                    if current_time - last_still_awake > 5:
-                        last_still_awake = time.time()
-                        connection.send_message('stillawake', last_still_awake)
-
                     if event.type == pygame.KEYDOWN:
                         new_pos = None
                         if event.key == pygame.K_UP:
@@ -103,6 +104,8 @@ class GameMain(object):
                         if new_pos:
                             if self.valid_move(self.player_positions[self.player_id], new_pos):
                                 self.player_positions[self.player_id] = new_pos
+                                if self.check_for_win():
+                                    print(f'player {self.player_id} won')
                                 x, y = self.player_positions[self.player_id]
                                 self.connection.send_message('msg', f'PAWN,{self.player_id},{x},{y}')
                                 self.current_player = self.next_player()
@@ -157,7 +160,7 @@ class GameMain(object):
                 walls.draw(screen)
                 players.draw(screen)
                 if not self.current_player == self.player_id:
-                    if time.time() - self.connection.get_last_awake_time() > 5:
+                    if time.time() - self.last_heartbeat > 10:
                         text_surface = font.render("Waiting for current player to reconnect", True, black)
                         screen.blit(text_surface, (300, 50))
                     else:
@@ -235,19 +238,32 @@ class GameMain(object):
                 return False 
         return True
     
+    # Check if player has won
+    def check_for_win(self):
+        ppos = self.player_positions[self.player_id]
+        colrow, wpos = WINNING_POSITIONS[self.player_id]
+        if colrow == "col" and ppos[0] == wpos:
+            return True
+        elif colrow == "row" and ppos[1] == wpos:
+            return True
+        return False
+    
 
+    # Returns the id of the next player
     def next_player(self):
         pindex = int(self.current_player[1])
         next_player = (pindex) % (len(self.joined_players) + 1)
         return f'P{next_player + 1}'
     
 
+    # Sets the pawns of the players to the starting positions
     def populate_playerlist(self, numplayers):
         for i in range(1, numplayers+1):
             id = f"P{i}"
             self.player_positions[id] = STARTING_POSITIONS[id]
 
 
+    # Creates the game board graphics
     def create_board_surf(self):
         board_surf = pygame.Surface(((TILESIZE + WALLSIZE) * BOARDSIZE - WALLSIZE, 
                                     (TILESIZE + WALLSIZE) * BOARDSIZE - WALLSIZE), pygame.SRCALPHA, 32)
@@ -275,6 +291,7 @@ class GameMain(object):
         return (x, y)
 
 
+    # Creates the wall graphics
     def create_walls(self, wall_positions, board_pos):
         walls = pygame.sprite.Group()
         for i in range(len(wall_positions)):
@@ -285,6 +302,7 @@ class GameMain(object):
         return walls
 
 
+    # Creates the player pawn graphics
     def create_players(self, player_positions, board_pos):
         players = pygame.sprite.Group()
         i = 0
@@ -328,6 +346,10 @@ class GameMain(object):
                 self.player_id = self.connection.player_id
                 self.populate_playerlist(len(self.joined_players) + 1)
                 self.status = "playing"
+                
+            case 'STILL_AWAKE':
+                print('heartbeat received')
+                self.last_heartbeat = time.time()
 
 
             case _:
