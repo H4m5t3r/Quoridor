@@ -334,27 +334,24 @@ class GameMain(object):
                 playerid = parts[1]
                 self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
 
-
             case 'WALL':
                 print('wall message received')
                 self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
-
 
             case 'TURN':
                 print('turn message received')
                 self.turn_index = int(parts[1])
 
-
             case 'CURRENT_PLAYER':
                 self.current_player = parts[1]
                 print('current player is', self.current_player)
             
-
             case 'START':
                 print('start message received')
                 self.player_id = self.connection.player_id
                 self.populate_playerlist(len(self.joined_players) + 1)
                 self.status = "playing"
+                self.connection.set_playing(True)
                 
             case 'STILL_AWAKE':
                 print('heartbeat received')
@@ -363,7 +360,9 @@ class GameMain(object):
             case 'WIN':
                 print('winning message received')
                 self.check_for_win()
-
+            
+            case 'START_SYNC':
+                print('start sync message received')
 
             case _:
                 print('unknown message')

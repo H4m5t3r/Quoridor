@@ -26,12 +26,10 @@ class Connection:
         self.players = {}
         self.state = {
             "agree_players": False,
-            "agree_pawns": False,
-            "agree_walls": False
+            "playing": False,
             }
         self.player_id = None
         self.ready_to_start = False
-        self.last_awake_time = time.time()
 
 
     def get_my_ip(self):
@@ -41,20 +39,14 @@ class Connection:
             localname = localname + "-Ethernet"
         IP = socket.gethostbyname(localname)
         return IP
-  
-    def get_last_awake_time(self):
-        return self.last_awake_time
-  
-    def set_last_awake_time(self, time):
-        self.last_awake_time = time
     
         # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # s.connect(("8.8.8.8", 80))
         # IP = s.getsockname()[0]
         # s.close()
         # return IP
-
-
+    
+    
     def connect_to_node(self, host):
         try:
             Logger.log(f'Attempting connection to {host}')
@@ -62,10 +54,7 @@ class Connection:
             self.connections.append(connection)
             self.addresses.append(host)
             Logger.log(f"Connection created to {host}:{PORT}")
-
-
             self.send_known_connections()
-
 
         except ConnectionRefusedError:
             Logger.log(f'Connection to {host} refused')
@@ -88,12 +77,16 @@ class Connection:
         self.socket.bind((self.host, PORT))
         self.socket.listen(4)
         Logger.log(f"Listening for connections on {self.host}:{PORT}")
-
-
         while self.running:
             try:
                 connection, address = self.socket.accept()
                 Logger.log(f"Accepted connection from {address}")
+                # Check if node is reconnecting
+                if address[0] in self.addresses:
+                    Logger.log('Node reconnecting')
+                    if self.state["playing"]:
+                        # if playing and reconnecting, reconnect and send state
+                        self.messages.append('START_SYNC')
                 self.potential_connections.append(address[0])
                 threading.Thread(target=self.handle_client, args=(connection, address)).start()
             except ConnectionAbortedError:
@@ -119,6 +112,9 @@ class Connection:
                 Logger.log(f"Sent message to {connection.getpeername()}: {message}")
             except socket.error as e:
                 Logger.log(f"Failed to send message. Error: {e}")
+                self.connections.remove(connection)
+                Logger.debug(f"Removed connection {connection} from connections")
+                Logger.debug(f"Remaining connections {self.connections}")
 
 
     # Returns a message from the message queue.
@@ -172,7 +168,9 @@ class Connection:
             self.ready_to_start = True
             self.send_message(MessageTypes.MESSAGE, "CURRENT_PLAYER,P1")
             self.send_message(MessageTypes.MESSAGE, "START")
+            self.state["playing"] = True
       
+
     def get_connected_peers(self):
         return self.connections
 
@@ -204,7 +202,8 @@ class Connection:
                     for conn in self.connections:
                         if conn.getpeername()[0] == connection.getpeername()[0]:
                             conn.close()
-                            self.addresses.remove(connection.getpeername()[0])
+                            if not self.state["playing"]:
+                                self.addresses.remove(connection.getpeername()[0])
                         else:
                             remaining_players.append(conn)
                     connection.close()
@@ -237,10 +236,6 @@ class Connection:
                     Logger.log(f"Set player list to {self.players}")
                     self.get_my_id()
 
-                if message_type == MessageTypes.STILL_AWAKE:
-                    self.last_awake_time = dict["data"]
-                    Logger.log(f"Current player is still awake")
-
             except socket.error:
                 break
             except json.JSONDecodeError:
@@ -253,6 +248,9 @@ class Connection:
             if self.players[id] == self.my_ip:
                 self.player_id = id
                 print('set my id to ', self.player_id)
+    
+    def set_playing(self, value):
+        self.state["playing"] = value
 
 
     # Starts a thread that listens to new connections
@@ -260,10 +258,8 @@ class Connection:
         listen_thread = threading.Thread(target=self.listen_for_connections)
         listen_thread.start()
 
-
         peers = ['Juha-Air', 'Juhas-Mac-mini']
         # peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
-
 
         for p in peers:
             peerip = socket.gethostbyname(p)
