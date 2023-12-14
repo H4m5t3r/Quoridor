@@ -55,6 +55,11 @@ class GameMain(object):
         running = True
 
         while running:
+            # Give the connection component the player and wall positions for
+            # failure recovery
+            self.connection.supply_player_positions(self.player_positions)
+            self.connection.supply_wall_positions(self.wall_positions)
+
             # Check for network messages
             msg = self.connection.read_message()
             if msg:
@@ -349,7 +354,6 @@ class GameMain(object):
                 self.current_player = parts[1]
                 print('current player is', self.current_player)
             
-
             case 'START':
                 print('start message received')
                 self.player_id = self.connection.player_id
@@ -363,6 +367,13 @@ class GameMain(object):
             case 'WIN':
                 print('winning message received')
                 self.check_for_win()
+
+            case 'WALL_RECOVERY':
+                if self.status == "connecting":
+                    self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
+
+            case 'RESUME':
+                self.status = 'playing'
 
 
             case _:

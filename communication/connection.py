@@ -1,4 +1,4 @@
-PORT = 5050
+PORT = 5071
 FORMAT = 'utf-8'
 DEBUG = True
 HEADER = 64
@@ -32,7 +32,19 @@ class Connection:
         self.player_id = None
         self.ready_to_start = False
         self.last_awake_time = time.time()
+        self.synced_player_positions = {}
+        self.synced_wall_positions = []
+        self.synced_current_player = None
 
+
+    def supply_player_positions(self, player_positions):
+        self.synced_player_positions = player_positions
+
+    def supply_wall_positions(self, wall_positions):
+        self.synced_wall_positions = wall_positions
+
+    def supply_current_player(self, current_player):
+        self.synced_current_player = current_player
 
     def get_my_ip(self):
         localname = socket.gethostname()
@@ -76,9 +88,20 @@ class Connection:
     def connect_to_peers(self):
         while len(self.potential_connections) > 0:
             conn = self.potential_connections.pop()
-            if not (conn == self.my_ip or conn in self.addresses):
-                self.connect_to_node(socket.gethostbyname(conn))
-      
+            if not conn == self.my_ip:
+                if not conn in self.addresses:
+                    self.connect_to_node(socket.gethostbyname(conn))
+                else:
+                    self.send_recovery_information()
+                    self.send_message(MessageTypes.MESSAGE, 'RESUME')
+
+    def send_recovery_information(self):
+        self.send_known_connections()
+        self.send_message(MessageTypes.PLAYER_IDS, self.players)
+        self.send_message(MessageTypes.MESSAGE, 'CURRENT_PLAYER,' + self.current_player)
+        for wall in self.synced_wall_positions:
+            self.send_message(MessageTypes.MESSAGE, f'WALL_RECOVERY,{wall[0]},{wall[1]},{wall[2]}')
+
     def send_known_connections(self):
         self.send_message(MessageTypes.CONNECTIONS, self.addresses)
 
@@ -261,8 +284,9 @@ class Connection:
         listen_thread.start()
 
 
-        peers = ['Juha-Air', 'Juhas-Mac-mini']
-        # peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
+        # peers = ['Juha-Air', 'Juhas-Mac-mini']
+        peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
+        # peers = ['lx9-fuxi101', 'anton-msb08911']
 
 
         for p in peers:
