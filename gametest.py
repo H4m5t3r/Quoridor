@@ -363,6 +363,7 @@ class GameMain(object):
             
             case 'START_SYNC':
                 print('start sync message received')
+                self.connection.connect_to_peers()
 
             case _:
                 print('unknown message')

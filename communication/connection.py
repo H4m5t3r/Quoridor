@@ -64,6 +64,7 @@ class Connection:
 
     def connect_to_peers(self):
         while len(self.potential_connections) > 0:
+            print(f"Connecting to possible peers {self.potential_connections}")
             conn = self.potential_connections.pop()
             if not (conn == self.my_ip or conn in self.addresses):
                 self.connect_to_node(socket.gethostbyname(conn))
@@ -86,7 +87,13 @@ class Connection:
                     Logger.log('Node reconnecting')
                     if self.state["playing"]:
                         # if playing and reconnecting, reconnect and send state
+                        self.potential_connections.append(address[0])
+                        self.addresses.remove(address[0])
+                        self.connect_to_peers()
+                        self.send_known_connections()
+                        time.sleep(1)
                         self.messages.append('START_SYNC')
+
                 self.potential_connections.append(address[0])
                 threading.Thread(target=self.handle_client, args=(connection, address)).start()
             except ConnectionAbortedError:
