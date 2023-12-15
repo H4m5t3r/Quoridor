@@ -170,7 +170,7 @@ class GameMain(object):
                     if not self.current_player == self.player_id:
                         if time.time() - self.last_heartbeat > 10:
                             text_surface = font.render("Waiting for current player to reconnect", True, black)
-                            screen.blit(text_surface, (300, 50))
+                            screen.blit(text_surface, (230, 50))
                         else:
                             text_surface = font.render("Please wait for your turn", True, black)
                             screen.blit(text_surface, (300, 50))
@@ -378,7 +378,7 @@ class GameMain(object):
                 if self.status == "playing":
                     pass
 
-                jsonstr = msg[7:-1]
+                jsonstr = msg[5:]
                 data = json.loads(jsonstr)
                 self.player_positions = data["playerpos"]
                 self.wall_positions = data["walls"]
