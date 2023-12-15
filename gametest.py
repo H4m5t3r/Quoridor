@@ -333,11 +333,13 @@ class GameMain(object):
             case 'PAWN':
                 print('pawn message received')
                 playerid = parts[1]
-                self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
+                if self.valid_move(self.player_positions[playerid], (int(parts[2]),int(parts[3]))):
+                    self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
 
             case 'WALL':
                 print('wall message received')
-                self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
+                if self.valid_wall_pos((int(parts[1]),int(parts[2]),parts[3])):
+                    self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
 
             case 'TURN':
                 print('turn message received')
