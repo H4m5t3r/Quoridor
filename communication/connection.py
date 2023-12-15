@@ -267,6 +267,8 @@ class Connection:
 
         peers = ['Juha-Air', 'Juhas-Mac-mini']
         # peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet']
+        # peers = ['lx9-fuxi101-Ethernet', 'anton-msb08911-Ethernet', 'LAPTOP-OP30RATB-Wireless']
+        # peers = ['vm1', 'vm2', 'vm4']
 
         for p in peers:
             peerip = socket.gethostbyname(p)
