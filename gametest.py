@@ -12,6 +12,7 @@ MIN_NUM_OF_PLAYERS = 2
 import pygame
 from game.wall import Wall
 from game.player import Player
+import json
 
 # Import network stuff
 from communication.connection import Connection
@@ -363,7 +364,29 @@ class GameMain(object):
             
             case 'START_SYNC':
                 print('start sync message received')
-                self.connection.connect_to_peers()
+                state = {
+                    "status": self.status,
+                    "playerpos": self.player_positions,
+                    "walls": self.wall_positions,
+                    "currentplayer": self.current_player
+                    }
+
+                data = json.dumps(state)
+                self.connection.send_message('msg', f'SYNC,{data}')
+            
+            case 'SYNC':
+                if self.status == "playing":
+                    pass
+
+                jsonstr = msg[7:-1]
+                data = json.loads(jsonstr)
+                self.player_positions = data["playerpos"]
+                self.wall_positions = data["walls"]
+                self.current_player = data["currentplayer"]
+                self.status = data["status"]
+                self.connection.get_my_id()
+                self.player_id = self.connection.player_id
+
 
             case _:
                 print('unknown message')
