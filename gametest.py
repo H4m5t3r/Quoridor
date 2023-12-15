@@ -12,6 +12,7 @@ MIN_NUM_OF_PLAYERS = 2
 import pygame
 from game.wall import Wall
 from game.player import Player
+import json
 
 # Import network stuff
 from communication.connection import Connection
@@ -169,7 +170,7 @@ class GameMain(object):
                     if not self.current_player == self.player_id:
                         if time.time() - self.last_heartbeat > 10:
                             text_surface = font.render("Waiting for current player to reconnect", True, black)
-                            screen.blit(text_surface, (300, 50))
+                            screen.blit(text_surface, (230, 50))
                         else:
                             text_surface = font.render("Please wait for your turn", True, black)
                             screen.blit(text_surface, (300, 50))
@@ -332,11 +333,13 @@ class GameMain(object):
             case 'PAWN':
                 print('pawn message received')
                 playerid = parts[1]
-                self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
+                if self.valid_move(self.player_positions[playerid], (int(parts[2]),int(parts[3]))):
+                    self.player_positions[playerid] = (int(parts[2]),int(parts[3]))
 
             case 'WALL':
                 print('wall message received')
-                self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
+                if self.valid_wall_pos((int(parts[1]),int(parts[2]),parts[3])):
+                    self.wall_positions.append((int(parts[1]),int(parts[2]),parts[3]))
 
             case 'TURN':
                 print('turn message received')
@@ -363,7 +366,29 @@ class GameMain(object):
             
             case 'START_SYNC':
                 print('start sync message received')
-                self.connection.connect_to_peers()
+                state = {
+                    "status": self.status,
+                    "playerpos": self.player_positions,
+                    "walls": self.wall_positions,
+                    "currentplayer": self.current_player
+                    }
+
+                data = json.dumps(state)
+                self.connection.send_message('msg', f'SYNC,{data}')
+            
+            case 'SYNC':
+                if self.status == "playing":
+                    pass
+
+                jsonstr = msg[5:]
+                data = json.loads(jsonstr)
+                self.player_positions = data["playerpos"]
+                self.wall_positions = data["walls"]
+                self.current_player = data["currentplayer"]
+                self.status = data["status"]
+                self.connection.get_my_id()
+                self.player_id = self.connection.player_id
+
 
             case _:
                 print('unknown message')

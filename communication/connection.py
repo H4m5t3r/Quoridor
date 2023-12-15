@@ -91,7 +91,7 @@ class Connection:
                         self.addresses.remove(address[0])
                         self.connect_to_peers()
                         self.send_known_connections()
-                        time.sleep(1)
+                        self.send_message(MessageTypes.PLAYER_IDS, self.players)
                         self.messages.append('START_SYNC')
 
                 self.potential_connections.append(address[0])
